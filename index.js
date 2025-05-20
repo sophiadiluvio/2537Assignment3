@@ -73,7 +73,13 @@ function startGame(totalPairs, timeLimit, columns, rows) {
   const totalDisplay = $("#total");
   const timerText = $("#timerText");
 
+  // clears any existing timer
+  if (window.gameTimer) {
+    clearInterval(window.gameTimer);
+  }
+
   // game state variables
+  // this reset all states
   let firstCard = null;
   let secondCard = null;
   let boardLocked = false;
@@ -81,143 +87,173 @@ function startGame(totalPairs, timeLimit, columns, rows) {
   let clickCount = 0;
   let wrongMatchCount = 0;
   let powerUsed = false;
-  let timer;
 
   message.text("");
 
-  // fetch Pokémon list
-  $.get("https://pokeapi.co/api/v2/pokemon?limit=1500", function (data) {
-    const allPokemon = data.results;
-    const selectedIndexes = [];
+  // resets the displays before API call
+  timeDisplay.text(timeLimit);
+  clickDisplay.text("0");
+  matchedDisplay.text("0");
+  remainingDisplay.text(totalPairs);
+  totalDisplay.text(totalPairs);
+  timerText.text(`You got ${timeLimit} seconds. 0 seconds passed!`);
 
-    // choose random unique Pokémon
-    while (selectedIndexes.length < totalPairs * 2 && selectedIndexes.length < allPokemon.length) {
-      const rand = Math.floor(Math.random() * allPokemon.length);
-      if (!selectedIndexes.includes(rand)) {
-        selectedIndexes.push(rand);
+  // fetch Pokémon list with error handling
+  $.ajax({
+    url: "https://pokeapi.co/api/v2/pokemon?limit=1500",
+    type: "GET",
+    success: function(data) {
+      const allPokemon = data.results;
+      const selectedIndexes = [];
+      const shuffledIndices = [...Array(allPokemon.length).keys()].sort(() => Math.random() - 0.5);
+
+      // choose random unique Pokémon more efficiently using pre-shuffled array
+      for (let i = 0; i < Math.min(totalPairs, shuffledIndices.length); i++) {
+        selectedIndexes.push(shuffledIndices[i]);
       }
-    }
 
-    // this gets the details of selected Pokémon
-    const promises = selectedIndexes.map(index => $.get(allPokemon[index].url));
-
-    Promise.all(promises).then(responses => {
-      const images = [];
-
-      responses.slice(0, totalPairs).forEach(pokemon => {
-        const imgUrl = pokemon.sprites.other["official-artwork"].front_default;
-        if (imgUrl) {
-          images.push(imgUrl, imgUrl); // add pair
-        }
+      // this gets the details of selected Pokémon
+      const promises = selectedIndexes.map(index => {
+        return $.ajax({
+          url: allPokemon[index].url,
+          type: "GET",
+          error: function() {
+            return { sprites: { other: { "official-artwork": { front_default: "back.webp" } } } };
+          }
+        });
       });
 
-      // shuffles cards
-      images.sort(() => Math.random() - 0.5);
-      cardContainer.empty();
+      Promise.all(promises).then(responses => {
+        const images = [];
 
-      // ths resets the stats
-      matchCount = 0;
-      clickCount = 0;
-      timeDisplay.text(`${timeLimit}`);
-      clickDisplay.text(`${clickCount}`);
-      matchedDisplay.text(`${matchCount}`);
-      remainingDisplay.text(`${totalPairs}`);
-      totalDisplay.text(`${totalPairs}`);
-      timerText.text(`You got ${timeLimit} seconds. 0 seconds passed!`);
+        responses.forEach(pokemon => {
+          const imgUrl = pokemon.sprites.other["official-artwork"].front_default;
+          if (imgUrl) {
+            images.push(imgUrl, imgUrl);
+          }
+        });
 
-      // this create cards
-      images.forEach((imgSrc, index) => {
-        const card = $(`
-          <div class="card">
-            <img id="img${index}" class="front_face" src="${imgSrc}" alt="">
-            <img class="back_face" src="back.webp" alt="">
-          </div>
-        `);
-        cardContainer.append(card);
-      });
-
-      // card on click handler
-      $(".card").on("click", function () {
-        if (boardLocked || $(this).hasClass("flip")) return;
-
-        $(this).addClass("flip");
-        clickCount++;
-        clickDisplay.text(`Clicks: ${clickCount}`);
-
-        if (!firstCard) {
-          firstCard = $(this);
-          return;
+        // this makes sure theres have enough pairs
+        while (images.length < totalPairs * 2) {
+          // Use default image if we couldn't load enough Pokémon
+          images.push("back.webp", "back.webp");
         }
 
-        secondCard = $(this);
-        const firstImgSrc = firstCard.find(".front_face")[0].src;
-        const secondImgSrc = secondCard.find(".front_face")[0].src;
+        // shuffles cards
+        images.sort(() => Math.random() - 0.5);
+        cardContainer.empty();
 
-        if (firstImgSrc === secondImgSrc) {
-          // match found
-          firstCard.off("click");
-          secondCard.off("click");
-          firstCard = null;
-          secondCard = null;
+        // create cards
+        images.forEach((imgSrc, index) => {
+          const card = $(`
+            <div class="card">
+              <img id="img${index}" class="front_face" src="${imgSrc}" alt="Pokemon card">
+              <img class="back_face" src="back.webp" alt="Card back">
+            </div>
+          `);
+          cardContainer.append(card);
+        });
 
-          matchCount++;
-          matchedDisplay.text(`Matches: ${matchCount}`);
-          remainingDisplay.text(`Remaining: ${totalPairs - matchCount}`);
+        // card on click handler
+        $(".card").on("click", function () {
+          // prevent clicks if board is locked or card is already flipped
+          if (boardLocked || $(this).hasClass("flip")) return;
+          
+          // prevent double clicks on same card
+          if (firstCard && firstCard[0] === this) return;
 
-          if (matchCount === totalPairs) {
-            clearInterval(timer);
-            message.text("Congratulations! You Win!");
-          }
-        } else {
-          // no match
-          wrongMatchCount++;
+          $(this).addClass("flip");
+          clickCount++;
+          clickDisplay.text(`${clickCount}`);
 
-          // power up logic
-          if (wrongMatchCount >= 5 && !powerUsed) {
-            powerUsed = true;
-            if (confirm("You've made 5 mistakes. Use a Trigger Power-Up?")) {
-              $(".card").addClass("flip");
-              message.text("Power-Up Activated!");
-              firstCard = null;
-              secondCard = null;
-              boardLocked = false;
-
-              setTimeout(() => {
-                $(".card").removeClass("flip");
-                message.text("");
-              }, 3000);
-              return;
-            }
+          if (!firstCard) {
+            firstCard = $(this);
+            return;
           }
 
-          // Tthis temporarily locks the board and unflip after delay
-          boardLocked = true;
-          setTimeout(() => {
-            firstCard.removeClass("flip");
-            secondCard.removeClass("flip");
+          secondCard = $(this);
+          boardLocked = true; // locks board immediately after second card is selected
+          
+          const firstImgSrc = firstCard.find(".front_face")[0].src;
+          const secondImgSrc = secondCard.find(".front_face")[0].src;
+
+          if (firstImgSrc === secondImgSrc) {
+            // match found
+            firstCard.off("click");
+            secondCard.off("click");
             firstCard = null;
             secondCard = null;
             boardLocked = false;
-          }, 1000);
-        }
+
+            matchCount++;
+            matchedDisplay.text(`${matchCount}`);
+            remainingDisplay.text(`${totalPairs - matchCount}`);
+
+            if (matchCount === totalPairs) {
+              clearInterval(window.gameTimer);
+              message.text("Congratulations! You Win!");
+            }
+          } else {
+            // no match
+            wrongMatchCount++;
+
+            // power up logic
+            if (wrongMatchCount >= 5 && !powerUsed) {
+              powerUsed = true;
+              if (confirm("You've made 5 mistakes. Use a Power-Up?")) {
+                $(".card").addClass("flip");
+                message.text("Power-Up Activated!");
+                setTimeout(() => {
+                  $(".card").removeClass("flip");
+                  $(".card").each(function() {
+                    if ($(this).data("matched")) {
+                      $(this).addClass("flip");
+                    }
+                  });
+                  message.text("");
+                  firstCard = null;
+                  secondCard = null;
+                  boardLocked = false;
+                }, 3000);
+                return;
+              } else {
+                // user declined power-up
+                firstCard.removeClass("flip");
+                secondCard.removeClass("flip");
+                firstCard = null;
+                secondCard = null;
+                boardLocked = false;
+              }
+            } else {
+              // This temporarily locks the board and unflips after delay
+              setTimeout(() => {
+                firstCard.removeClass("flip");
+                secondCard.removeClass("flip");
+                firstCard = null;
+                secondCard = null;
+                boardLocked = false;
+              }, 1000);
+            }
+          }
+        });
+
+        // timer countdown
+        let currentTime = timeLimit;
+        window.gameTimer = setInterval(() => {
+          currentTime--;
+          timeDisplay.text(`${currentTime}`);
+          const secondsPassed = timeLimit - currentTime;
+          timerText.text(`You got ${timeLimit} seconds. ${secondsPassed} seconds passed!`);
+
+          if (currentTime <= 0) {
+            clearInterval(window.gameTimer);
+            message.text("Game Over");
+            boardLocked = true; // Lock the board
+            $(".card").off("click");
+          }
+        }, 1000);
       });
-
-      // timer countdown
-      let currentTime = timeLimit;
-      clearInterval(timer);
-      timer = setInterval(() => {
-        currentTime--;
-        timeDisplay.text(`Time: ${currentTime}`);
-        const secondsPassed = timeLimit - currentTime;
-        timerText.text(`You got ${timeLimit} seconds. ${secondsPassed} seconds passed`);
-
-        if (currentTime === 0) {
-          clearInterval(timer);
-          message.text("Game Over");
-          $(".card").off("click");
-        }
-      }, 1000);
-    });
+    },
   });
 }
 
