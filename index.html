@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pokemon Memory Game</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="index.js"></script>
+</head>
+<body>
+  <div id="controls">
+    <!-- game difficulty buttons -->
+    <button class="difficulty" data-diff="easy">Easy</button>
+    <button class="difficulty" data-diff="medium">Medium</button>
+    <button class="difficulty" data-diff="hard">Hard</button>
+    <br>
+    <!-- reset and start buttons -->
+    <button id="reset">Reset</button>
+    <button id="start">Start</button>
+
+  </div>
+  
+  <!-- main game grid (cards will appear here) -->
+  <div id="game_grid"></div>  
+
+
+  <div id="statusDisplay">
+    <p><strong>Total Number of Pairs:</strong> <span id="total">0</span></p>
+    <p><strong>Number of Matches:</strong> <span id="matched">0</span></p>
+    <p><strong>Number of pair left:</strong> <span id="remaining">0</span></p>
+    <p><strong>Number of Clicks:</strong> <span id="clicks">0</span></p>
+    <p><strong id="timerText">You got 0 seconds. 0 seconds passed</strong></p>
+    <p id="message"></p>
+  </div>
+
+  <!--dark and light mode buttons-->
+  <div id="theme">
+    <button id="dark">Dark</button>
+    <button id="light">Light</button>
+  </div>
+
+
+</body>
+</html>

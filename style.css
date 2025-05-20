@@ -1,0 +1,92 @@
+
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin: 20px;
+    background-color: white;
+    color: black;
+  }
+  
+  
+  #controls button,
+  #theme button {
+    margin: 5px;
+    padding: 10px 15px;
+    font-size: 16px;
+  }
+  
+  
+  #statusDisplay {
+    margin-top: 20px;
+    font-size: 18px;
+    font-weight: bold;
+  }
+  
+  
+  #game_grid {
+    display: grid;
+  gap: 10px;
+  justify-content: center;
+  margin: 20px auto;
+  background-color: white;
+  padding: 20px;
+  border-radius: 10px;
+  transition: background-color 0.5s;
+  }
+  
+
+  #game_grid.dark-mode {
+    background-color: #1e1e1e;
+    width: fit-content; 
+  height: fit-content;
+  }
+  
+  
+  .card {
+    width: 100px;
+  height: 100px;
+  margin: 5px;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.8s;
+  background-color: transparent; 
+  border: none;                 
+  box-shadow: none;
+  }
+  
+
+  .card.flip {
+    transform: rotateY(180deg);
+  }
+  
+  
+  .front_face,
+  .back_face {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    backface-visibility: hidden;
+    object-fit: contain;
+    display: block;
+    background-color: transparent;
+  }
+  
+ 
+  .front_face {
+    transform: rotateY(180deg);
+  }
+  
+  
+  .back_face {
+    transform: rotateY(0deg);
+  }
+  
+
+  button.selected {
+    background-color: #007bff; 
+    color: white;
+    font-weight: bold;
+  }
+  
